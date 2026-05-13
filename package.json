@@ -1,0 +1,26 @@
+{
+  "name": "whatsapp-chatbot",
+  "version": "1.0.0",
+  "description": "WhatsApp Chatbot with Baileys & Web UI",
+  "main": "src/index.js",
+  "type": "commonjs",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "nodemon src/index.js"
+  },
+  "dependencies": {
+    "@whiskeysockets/baileys": "^6.7.9",
+    "express": "^4.18.2",
+    "socket.io": "^4.7.4",
+    "qrcode": "^1.5.3",
+    "pino": "^8.21.0",
+    "pino-pretty": "^11.0.0",
+    "fs-extra": "^11.2.0",
+    "cors": "^2.8.5",
+    "body-parser": "^1.20.2",
+    "node-cache": "^5.1.2"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.0"
+  }
+}

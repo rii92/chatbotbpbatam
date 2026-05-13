@@ -1,0 +1,623 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>WA Chatbot — Control Panel</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;600;800&display=swap" rel="stylesheet" />
+  <script src="/socket.io/socket.io.js"></script>
+  <style>
+    /* ── Reset & Root ─────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:        #0a0b0f;
+      --surface:   #111318;
+      --surface2:  #181b22;
+      --border:    #252932;
+      --accent:    #00e57a;
+      --accent2:   #00b85e;
+      --danger:    #ff4d6d;
+      --warn:      #ffb830;
+      --text:      #e8eaf0;
+      --muted:     #6b7280;
+      --font-ui:   'Syne', sans-serif;
+      --font-mono: 'Space Mono', monospace;
+    }
+
+    html, body {
+      height: 100%;
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--font-ui);
+      overflow-x: hidden;
+    }
+
+    /* ── Scrollbar ────────────────────────────────────── */
+    ::-webkit-scrollbar { width: 4px; }
+    ::-webkit-scrollbar-track { background: var(--bg); }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+    /* ── Layout ──────────────────────────────────────── */
+    .app { display: grid; grid-template-rows: 64px 1fr; height: 100vh; }
+
+    /* ── Header ──────────────────────────────────────── */
+    header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0 28px;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      position: relative;
+      z-index: 10;
+    }
+    .logo {
+      display: flex; align-items: center; gap: 10px;
+      font-size: 1.1rem; font-weight: 800; letter-spacing: 0.04em;
+    }
+    .logo-icon {
+      width: 32px; height: 32px; border-radius: 8px;
+      background: var(--accent); display: flex; align-items: center; justify-content: center;
+      font-size: 1rem; flex-shrink: 0;
+    }
+    .logo span { color: var(--accent); }
+    .header-right { display: flex; align-items: center; gap: 14px; }
+
+    /* Status pill */
+    .status-pill {
+      display: flex; align-items: center; gap: 6px;
+      padding: 5px 12px; border-radius: 100px;
+      font-family: var(--font-mono); font-size: 0.7rem; letter-spacing: 0.05em;
+      border: 1px solid var(--border);
+      transition: all 0.3s;
+    }
+    .status-pill .dot {
+      width: 7px; height: 7px; border-radius: 50%;
+      animation: pulse 2s infinite;
+    }
+    .status-pill.connected { border-color: var(--accent); color: var(--accent); }
+    .status-pill.connected .dot { background: var(--accent); }
+    .status-pill.qr { border-color: var(--warn); color: var(--warn); }
+    .status-pill.qr .dot { background: var(--warn); }
+    .status-pill.disconnected, .status-pill.connecting { border-color: var(--danger); color: var(--danger); }
+    .status-pill.disconnected .dot, .status-pill.connecting .dot { background: var(--danger); }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.5; transform: scale(0.85); }
+    }
+
+    .btn-logout {
+      padding: 6px 14px; border-radius: 6px; border: 1px solid var(--danger);
+      background: transparent; color: var(--danger);
+      font-family: var(--font-mono); font-size: 0.7rem; cursor: pointer;
+      transition: all 0.2s;
+    }
+    .btn-logout:hover { background: var(--danger); color: #fff; }
+
+    /* ── Main grid ───────────────────────────────────── */
+    main {
+      display: grid;
+      grid-template-columns: 300px 1fr 340px;
+      gap: 0;
+      height: 100%;
+      overflow: hidden;
+    }
+
+    /* ── Panel base ──────────────────────────────────── */
+    .panel {
+      border-right: 1px solid var(--border);
+      display: flex; flex-direction: column;
+      overflow: hidden;
+    }
+    .panel:last-child { border-right: none; }
+    .panel-header {
+      padding: 16px 20px;
+      border-bottom: 1px solid var(--border);
+      font-size: 0.7rem; font-weight: 600; letter-spacing: 0.12em;
+      text-transform: uppercase; color: var(--muted);
+      flex-shrink: 0;
+    }
+    .panel-body { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 16px; }
+
+    /* ── QR Panel ────────────────────────────────────── */
+    .qr-wrap {
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      gap: 14px; flex: 1;
+    }
+    .qr-box {
+      width: 200px; height: 200px; border-radius: 12px;
+      background: #fff; display: flex; align-items: center; justify-content: center;
+      overflow: hidden; position: relative;
+    }
+    .qr-box img { width: 180px; height: 180px; }
+    .qr-label {
+      font-family: var(--font-mono); font-size: 0.68rem; color: var(--muted); text-align: center;
+    }
+    .connected-icon {
+      width: 80px; height: 80px; border-radius: 50%;
+      background: rgba(0,229,122,0.1); border: 2px solid var(--accent);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 2rem;
+    }
+    .bot-number {
+      font-family: var(--font-mono); font-size: 0.85rem; color: var(--accent);
+      background: rgba(0,229,122,0.08); padding: 8px 16px; border-radius: 8px;
+      border: 1px solid rgba(0,229,122,0.2);
+    }
+
+    /* ── Form controls ───────────────────────────────── */
+    .field { display: flex; flex-direction: column; gap: 6px; }
+    .field label { font-size: 0.7rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+    .field input, .field textarea, .field select {
+      background: var(--surface2); border: 1px solid var(--border);
+      border-radius: 8px; padding: 10px 12px;
+      color: var(--text); font-family: var(--font-mono); font-size: 0.8rem;
+      outline: none; resize: none; transition: border-color 0.2s;
+    }
+    .field input:focus, .field textarea:focus { border-color: var(--accent); }
+    .field textarea { min-height: 80px; }
+
+    /* Buttons */
+    .btn {
+      padding: 10px 18px; border-radius: 8px; border: none; cursor: pointer;
+      font-family: var(--font-ui); font-size: 0.8rem; font-weight: 600;
+      transition: all 0.2s; display: flex; align-items: center; gap: 6px;
+      justify-content: center;
+    }
+    .btn-primary { background: var(--accent); color: #000; }
+    .btn-primary:hover { background: var(--accent2); }
+    .btn-primary:disabled { opacity: 0.4; cursor: not-allowed; }
+    .btn-secondary {
+      background: transparent; border: 1px solid var(--border);
+      color: var(--text);
+    }
+    .btn-secondary:hover { border-color: var(--accent); color: var(--accent); }
+    .btn-danger { background: transparent; border: 1px solid var(--danger); color: var(--danger); }
+    .btn-danger:hover { background: var(--danger); color: #fff; }
+    .btn-sm { padding: 5px 10px; font-size: 0.72rem; border-radius: 6px; }
+
+    /* ── Subject Matter list ─────────────────────────── */
+    .sm-add-row { display: flex; gap: 8px; }
+    .sm-add-row input { flex: 1; }
+
+    .sm-list { display: flex; flex-direction: column; gap: 6px; }
+    .sm-item {
+      display: flex; align-items: center; justify-content: space-between;
+      background: var(--surface2); border: 1px solid var(--border);
+      border-radius: 8px; padding: 8px 12px;
+      animation: fadeIn 0.2s;
+    }
+    .sm-item-num { font-family: var(--font-mono); font-size: 0.8rem; color: var(--accent); }
+    .sm-empty { font-size: 0.78rem; color: var(--muted); text-align: center; padding: 20px 0; }
+
+    /* ── Broadcast ───────────────────────────────────── */
+    .broadcast-result {
+      display: flex; flex-direction: column; gap: 4px;
+      max-height: 140px; overflow-y: auto; margin-top: 4px;
+    }
+    .br-item {
+      font-family: var(--font-mono); font-size: 0.7rem;
+      padding: 4px 8px; border-radius: 4px;
+      display: flex; justify-content: space-between;
+    }
+    .br-sent { background: rgba(0,229,122,0.08); color: var(--accent); }
+    .br-failed { background: rgba(255,77,109,0.1); color: var(--danger); }
+
+    /* ── Toggle switch ───────────────────────────────── */
+    .toggle-row {
+      display: flex; align-items: center; justify-content: space-between;
+      background: var(--surface2); border: 1px solid var(--border);
+      border-radius: 8px; padding: 10px 14px;
+    }
+    .toggle-label { font-size: 0.8rem; }
+    .toggle {
+      position: relative; width: 40px; height: 22px;
+    }
+    .toggle input { opacity: 0; width: 0; height: 0; }
+    .slider {
+      position: absolute; inset: 0; cursor: pointer;
+      background: var(--border); border-radius: 22px;
+      transition: 0.3s;
+    }
+    .slider::before {
+      content: ''; position: absolute;
+      height: 16px; width: 16px; left: 3px; bottom: 3px;
+      background: white; border-radius: 50%;
+      transition: 0.3s;
+    }
+    input:checked + .slider { background: var(--accent); }
+    input:checked + .slider::before { transform: translateX(18px); }
+
+    /* ── Log panel ───────────────────────────────────── */
+    .log-list { display: flex; flex-direction: column; gap: 8px; }
+    .log-item {
+      background: var(--surface2); border: 1px solid var(--border);
+      border-radius: 8px; padding: 10px 12px;
+      animation: slideIn 0.2s;
+    }
+    .log-item.blocked { border-left: 2px solid var(--danger); }
+    .log-item.allowed { border-left: 2px solid var(--accent); }
+    .log-item.broadcast { border-left: 2px solid var(--warn); }
+    .log-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; margin-bottom: 4px; }
+    .log-sender { font-family: var(--font-mono); font-size: 0.72rem; color: var(--accent); }
+    .log-sender.blocked { color: var(--danger); }
+    .log-sender.broadcast { color: var(--warn); }
+    .log-time { font-family: var(--font-mono); font-size: 0.65rem; color: var(--muted); }
+    .log-text { font-size: 0.78rem; color: var(--muted); word-break: break-word; }
+    .log-badge {
+      font-size: 0.6rem; padding: 2px 6px; border-radius: 4px; font-weight: 700;
+      letter-spacing: 0.06em; text-transform: uppercase;
+    }
+    .badge-allowed { background: rgba(0,229,122,0.15); color: var(--accent); }
+    .badge-blocked { background: rgba(255,77,109,0.15); color: var(--danger); }
+    .badge-broadcast { background: rgba(255,184,48,0.15); color: var(--warn); }
+    .log-empty { font-size: 0.78rem; color: var(--muted); text-align: center; padding: 30px 0; }
+
+    /* ── Divider ─────────────────────────────────────── */
+    .divider { height: 1px; background: var(--border); margin: 4px 0; }
+
+    /* ── Feedback toast ──────────────────────────────── */
+    .toast {
+      position: fixed; bottom: 24px; right: 24px; z-index: 999;
+      padding: 12px 20px; border-radius: 10px;
+      font-size: 0.8rem; font-weight: 600;
+      transform: translateY(60px); opacity: 0;
+      transition: all 0.3s;
+      pointer-events: none;
+    }
+    .toast.show { transform: translateY(0); opacity: 1; }
+    .toast.success { background: var(--accent); color: #000; }
+    .toast.error { background: var(--danger); color: #fff; }
+
+    @keyframes fadeIn { from { opacity: 0; transform: scale(0.97); } to { opacity: 1; transform: scale(1); } }
+    @keyframes slideIn { from { opacity: 0; transform: translateX(10px); } to { opacity: 1; transform: translateX(0); } }
+
+    /* ── Responsive tweaks ───────────────────────────── */
+    .section-title {
+      font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.1em;
+      color: var(--muted); margin-bottom: 4px;
+    }
+
+    /* Save button row */
+    .save-row { display: flex; justify-content: flex-end; }
+  </style>
+</head>
+<body>
+<div class="app">
+
+  <!-- ── Header ───────────────────────────────── -->
+  <header>
+    <div class="logo">
+      <div class="logo-icon">📱</div>
+      WA<span>Bot</span> Control Panel
+    </div>
+    <div class="header-right">
+      <div class="status-pill disconnected" id="statusPill">
+        <div class="dot"></div>
+        <span id="statusText">Disconnected</span>
+      </div>
+      <button class="btn-logout" onclick="handleLogout()">⏏ Logout</button>
+    </div>
+  </header>
+
+  <!-- ── Main ─────────────────────────────────── -->
+  <main>
+
+    <!-- ─ Panel 1: Connection ──────────────────── -->
+    <div class="panel">
+      <div class="panel-header">🔗 Koneksi WhatsApp</div>
+      <div class="panel-body">
+
+        <div class="qr-wrap" id="qrWrap">
+          <div class="qr-box">
+            <img id="qrImg" src="" alt="" style="display:none" />
+            <span id="qrPlaceholder" style="color:#555;font-size:2.5rem">📷</span>
+          </div>
+          <div class="qr-label">Scan QR code ini dengan WhatsApp<br/>nomor <strong style="color:var(--accent)">6285168779389</strong></div>
+        </div>
+
+        <div class="connected-view" id="connectedView" style="display:none;flex-direction:column;align-items:center;gap:12px;flex:1;justify-content:center;">
+          <div class="connected-icon">✅</div>
+          <div style="font-weight:700;font-size:1rem">Terhubung!</div>
+          <div class="bot-number">+6285168779389</div>
+          <div style="font-size:0.75rem;color:var(--muted);text-align:center">Bot aktif dan siap menerima pesan</div>
+        </div>
+
+        <div class="divider"></div>
+
+        <!-- Bot Active Toggle -->
+        <div class="toggle-row">
+          <span class="toggle-label">⚡ Bot Aktif</span>
+          <label class="toggle">
+            <input type="checkbox" id="botActiveToggle" onchange="saveBotActive(this.checked)" />
+            <span class="slider"></span>
+          </label>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- ─ Panel 2: Config + Subject Matters ─────── -->
+    <div class="panel">
+      <div class="panel-header">⚙️ Konfigurasi & Subject Matter</div>
+      <div class="panel-body">
+
+        <!-- Messages config -->
+        <div class="field">
+          <label>Pesan Penolakan (bukan Subject Matter)</label>
+          <textarea id="rejectMsg" rows="3"></textarea>
+        </div>
+        <div class="field">
+          <label>Pesan Sambutan (Subject Matter)</label>
+          <textarea id="welcomeMsg" rows="3"></textarea>
+        </div>
+        <div class="save-row">
+          <button class="btn btn-primary btn-sm" onclick="saveMessages()">💾 Simpan Pesan</button>
+        </div>
+
+        <div class="divider"></div>
+
+        <!-- Subject Matter management -->
+        <div class="section-title">📋 Daftar Subject Matter</div>
+        <div class="sm-add-row">
+          <input type="text" id="smInput" placeholder="62812345678" class="field" style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:9px 12px;color:var(--text);font-family:var(--font-mono);font-size:0.8rem;outline:none;flex:1;"/>
+          <button class="btn btn-primary btn-sm" onclick="addSubjectMatter()">+ Tambah</button>
+        </div>
+        <div id="smList" class="sm-list">
+          <div class="sm-empty">Belum ada Subject Matter terdaftar</div>
+        </div>
+
+        <div class="divider"></div>
+
+        <!-- Broadcast -->
+        <div class="section-title">📢 Broadcast ke Subject Matter</div>
+        <div class="field">
+          <textarea id="spamMsg" placeholder="Tulis pesan broadcast di sini..." rows="3"></textarea>
+        </div>
+        <button class="btn btn-secondary" onclick="sendBroadcast()" id="broadcastBtn">
+          📤 Kirim Broadcast
+        </button>
+        <div id="broadcastResult" class="broadcast-result"></div>
+
+      </div>
+    </div>
+
+    <!-- ─ Panel 3: Activity Log ──────────────────── -->
+    <div class="panel">
+      <div class="panel-header">📊 Log Aktivitas</div>
+      <div class="panel-body" id="logPanel">
+        <div class="log-list" id="logList">
+          <div class="log-empty" id="logEmpty">Menunggu pesan masuk...</div>
+        </div>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<script>
+  // ── Socket.IO ─────────────────────────────────────────
+  const socket = io();
+  let logs = [];
+
+  socket.on('status', ({ status }) => updateStatus(status));
+  socket.on('qr', ({ qr }) => showQR(qr));
+  socket.on('log', (entry) => appendLog(entry));
+
+  // ── Init ──────────────────────────────────────────────
+  window.addEventListener('load', async () => {
+    await loadConfig();
+    await loadSubjectMatters();
+    const st = await fetch('/api/status').then(r => r.json());
+    updateStatus(st.status);
+    if (st.qr) showQR(st.qr);
+  });
+
+  // ── Status ────────────────────────────────────────────
+  function updateStatus(status) {
+    const pill = document.getElementById('statusPill');
+    const text = document.getElementById('statusText');
+    const qrWrap = document.getElementById('qrWrap');
+    const connView = document.getElementById('connectedView');
+
+    pill.className = 'status-pill ' + status;
+
+    const labels = {
+      connected: '● Terhubung',
+      qr: '◉ Scan QR',
+      connecting: '○ Menghubungkan...',
+      disconnected: '○ Terputus',
+    };
+    text.textContent = labels[status] || status;
+
+    if (status === 'connected') {
+      qrWrap.style.display = 'none';
+      connView.style.display = 'flex';
+    } else {
+      qrWrap.style.display = 'flex';
+      connView.style.display = 'none';
+    }
+  }
+
+  // ── QR ────────────────────────────────────────────────
+  function showQR(dataUrl) {
+    const img = document.getElementById('qrImg');
+    const ph = document.getElementById('qrPlaceholder');
+    img.src = dataUrl;
+    img.style.display = 'block';
+    ph.style.display = 'none';
+  }
+
+  // ── Config ────────────────────────────────────────────
+  async function loadConfig() {
+    const cfg = await fetch('/api/config').then(r => r.json());
+    document.getElementById('rejectMsg').value = cfg.rejectMessage || '';
+    document.getElementById('welcomeMsg').value = cfg.welcomeMessage || '';
+    document.getElementById('botActiveToggle').checked = cfg.botActive !== false;
+  }
+
+  async function saveMessages() {
+    const rejectMessage = document.getElementById('rejectMsg').value.trim();
+    const welcomeMessage = document.getElementById('welcomeMsg').value.trim();
+    const res = await fetch('/api/config', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ rejectMessage, welcomeMessage }),
+    }).then(r => r.json());
+    toast(res.success ? 'Pesan berhasil disimpan ✓' : 'Gagal: ' + res.error, res.success ? 'success' : 'error');
+  }
+
+  async function saveBotActive(val) {
+    await fetch('/api/config', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ botActive: val }),
+    });
+    toast(val ? 'Bot diaktifkan ✓' : 'Bot dinonaktifkan', val ? 'success' : 'error');
+  }
+
+  // ── Subject Matters ───────────────────────────────────
+  async function loadSubjectMatters() {
+    const { subjectMatters } = await fetch('/api/subject-matters').then(r => r.json());
+    renderSM(subjectMatters);
+  }
+
+  function renderSM(list) {
+    const el = document.getElementById('smList');
+    if (!list || list.length === 0) {
+      el.innerHTML = '<div class="sm-empty">Belum ada Subject Matter terdaftar</div>';
+      return;
+    }
+    el.innerHTML = list.map(num => `
+      <div class="sm-item">
+        <span class="sm-item-num">+${num}</span>
+        <button class="btn btn-danger btn-sm" onclick="removeSubjectMatter('${num}')">✕ Hapus</button>
+      </div>
+    `).join('');
+  }
+
+  async function addSubjectMatter() {
+    const input = document.getElementById('smInput');
+    const number = input.value.trim().replace(/\D/g, '');
+    if (!number) { toast('Masukkan nomor yang valid', 'error'); return; }
+
+    const res = await fetch('/api/subject-matters', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ number }),
+    }).then(r => r.json());
+
+    if (res.success) {
+      input.value = '';
+      renderSM(res.subjectMatters);
+      toast('Nomor ditambahkan ✓', 'success');
+    } else {
+      toast(res.error || 'Gagal menambahkan', 'error');
+    }
+  }
+
+  async function removeSubjectMatter(number) {
+    const res = await fetch(`/api/subject-matters/${number}`, { method: 'DELETE' }).then(r => r.json());
+    if (res.success) { renderSM(res.subjectMatters); toast('Nomor dihapus', 'success'); }
+  }
+
+  // Enter to add
+  document.addEventListener('DOMContentLoaded', () => {
+    document.getElementById('smInput')?.addEventListener('keydown', e => {
+      if (e.key === 'Enter') addSubjectMatter();
+    });
+  });
+
+  // ── Broadcast ─────────────────────────────────────────
+  async function sendBroadcast() {
+    const message = document.getElementById('spamMsg').value.trim();
+    if (!message) { toast('Tulis pesan broadcast terlebih dahulu', 'error'); return; }
+
+    const btn = document.getElementById('broadcastBtn');
+    btn.disabled = true;
+    btn.textContent = '⏳ Mengirim...';
+
+    const res = await fetch('/api/broadcast', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message }),
+    }).then(r => r.json());
+
+    btn.disabled = false;
+    btn.innerHTML = '📤 Kirim Broadcast';
+
+    if (res.success) {
+      const resultEl = document.getElementById('broadcastResult');
+      resultEl.innerHTML = res.results.map(r => `
+        <div class="br-item ${r.status === 'sent' ? 'br-sent' : 'br-failed'}">
+          <span>+${r.number}</span>
+          <span>${r.status === 'sent' ? '✓ Terkirim' : '✗ Gagal'}</span>
+        </div>
+      `).join('');
+      toast(`Broadcast selesai: ${res.results.filter(r => r.status === 'sent').length} terkirim`, 'success');
+    } else {
+      toast('Gagal: ' + res.error, 'error');
+    }
+  }
+
+  // ── Log ───────────────────────────────────────────────
+  function appendLog(entry) {
+    const list = document.getElementById('logList');
+    const empty = document.getElementById('logEmpty');
+    if (empty) empty.remove();
+
+    const isBroadcast = entry.broadcast;
+    const cls = isBroadcast ? 'broadcast' : (entry.allowed ? 'allowed' : 'blocked');
+    const senderCls = isBroadcast ? 'broadcast' : (entry.allowed ? '' : 'blocked');
+    const badge = isBroadcast
+      ? '<span class="log-badge badge-broadcast">BROADCAST</span>'
+      : (entry.allowed
+          ? '<span class="log-badge badge-allowed">ALLOWED</span>'
+          : '<span class="log-badge badge-blocked">BLOCKED</span>');
+
+    const time = new Date(entry.time).toLocaleTimeString('id-ID');
+
+    const item = document.createElement('div');
+    item.className = `log-item ${cls}`;
+    item.innerHTML = `
+      <div class="log-top">
+        <span class="log-sender ${senderCls}">+${entry.sender}</span>
+        <div style="display:flex;gap:6px;align-items:center">
+          ${badge}
+          <span class="log-time">${time}</span>
+        </div>
+      </div>
+      <div class="log-text">${escHtml(entry.text)}</div>
+    `;
+
+    list.prepend(item);
+
+    // Keep max 80 log items
+    while (list.children.length > 80) list.lastChild?.remove();
+  }
+
+  function escHtml(str) {
+    return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+
+  // ── Logout ────────────────────────────────────────────
+  async function handleLogout() {
+    if (!confirm('Yakin ingin logout? QR akan di-reset.')) return;
+    await fetch('/api/logout', { method: 'POST' });
+    toast('Logout berhasil', 'success');
+  }
+
+  // ── Toast ─────────────────────────────────────────────
+  function toast(msg, type = 'success') {
+    const el = document.getElementById('toast');
+    el.textContent = msg;
+    el.className = `toast ${type} show`;
+    setTimeout(() => el.classList.remove('show'), 3000);
+  }
+</script>
+</body>
+</html>
