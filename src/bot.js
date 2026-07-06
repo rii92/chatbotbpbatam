@@ -68,9 +68,19 @@ function normalizeNumber(num) {
   return num.replace(/\D/g, "");
 }
 
+function extractUser(jid) {
+  // Properly extract user from JID (handles device/agent suffix like .0, :1, _xyz)
+  // e.g. "6289693967005.0@s.whatsapp.net" → "6289693967005"
+  const atIdx = jid.indexOf("@");
+  if (atIdx === -1) return jid;
+  const userPart = jid.slice(0, atIdx);
+  // Remove device suffix (e.g. .0) and agent suffix (e.g. _xyz)
+  return userPart.split(".")[0].split(":")[0].split("_")[0];
+}
+
 function isSubjectMatter(senderJid) {
   const config = getConfig();
-  const senderNum = senderJid.replace("@s.whatsapp.net", "").replace(/\D/g, "");
+  const senderNum = normalizeNumber(extractUser(senderJid));
   return config.subjectMatters.some(
     (n) => normalizeNumber(n) === senderNum
   );
@@ -168,7 +178,7 @@ async function startBot(socketIo) {
         msg.message?.extendedTextMessage?.text ||
         "";
 
-      const senderNum = senderJid.replace("@s.whatsapp.net", "");
+      const senderNum = extractUser(senderJid);
       const isAllowed = isSubjectMatter(senderJid);
 
       // Log to UI
