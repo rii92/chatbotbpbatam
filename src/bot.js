@@ -34,7 +34,7 @@ function loadConfig() {
       spamMessage: "",
       spamEnabled: false,
       botActive: true,
-      aiEnabled: false,
+      aiEnabled: true,
       aiApiUrl: "http://192.168.200.177:8000",
     };
     fs.ensureFileSync(CONFIG_PATH);
