@@ -190,7 +190,7 @@ async function startBot(socketIo) {
       });
 
       console.log(
-        `[MSG] From: ${senderNum} | Allowed: ${isAllowed} | Text: ${text}`
+        `[MSG] From: ${senderNum} | JID: ${senderJid} | Allowed: ${isAllowed} | SM list: [${config.subjectMatters.join(",")}] | Text: ${text}`
       );
 
       if (!isAllowed) {
