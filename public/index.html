@@ -359,7 +359,7 @@
 
         <!-- AI API Integration -->
         <div class="divider"></div>
-        <div class="section-title">🤖 AI BP Batam Integration</div>
+        <div class="section-title">🤖 AI EduQuery (Webhook)</div>
         <div class="toggle-row">
           <span class="toggle-label">🧠 Aktifkan AI</span>
           <label class="toggle">
@@ -368,16 +368,11 @@
           </label>
         </div>
         <div class="field">
-          <label>API URL</label>
-          <input type="text" id="aiApiUrl" placeholder="http://192.168.200.177:8000" onchange="saveAiConfig()" />
+          <label>API URL (EduQuery AI)</label>
+          <input type="text" id="aiApiUrl" placeholder="http://localhost:8000" onchange="saveAiConfig()" />
         </div>
-        <div class="field">
-          <label>Username</label>
-          <input type="text" id="aiUsername" placeholder="admin" onchange="saveAiConfig()" />
-        </div>
-        <div class="field">
-          <label>Password</label>
-          <input type="password" id="aiPassword" placeholder="12345" onchange="saveAiConfig()" />
+        <div class="field" style="font-size:0.75rem;color:var(--muted)">
+          Webhook endpoint: <code>/webhook/whatsapp</code> — tidak perlu auth
         </div>
 
         <div class="divider"></div>
@@ -493,9 +488,7 @@
     document.getElementById('welcomeMsg').value = cfg.welcomeMessage || '';
     document.getElementById('botActiveToggle').checked = cfg.botActive !== false;
     document.getElementById('aiEnabledToggle').checked = cfg.aiEnabled === true;
-    document.getElementById('aiApiUrl').value = cfg.aiApiUrl || 'http://192.168.200.177:8000';
-    document.getElementById('aiUsername').value = cfg.aiUsername || '';
-    document.getElementById('aiPassword').value = cfg.aiPassword || '';
+    document.getElementById('aiApiUrl').value = cfg.aiApiUrl || 'http://localhost:8000';
   }
 
   async function saveMessages() {
@@ -521,12 +514,10 @@
   async function saveAiConfig() {
     const aiEnabled = document.getElementById('aiEnabledToggle').checked;
     const aiApiUrl = document.getElementById('aiApiUrl').value.trim();
-    const aiUsername = document.getElementById('aiUsername').value.trim();
-    const aiPassword = document.getElementById('aiPassword').value.trim();
     const res = await fetch('/api/config', {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ aiEnabled, aiApiUrl, aiUsername, aiPassword }),
+      body: JSON.stringify({ aiEnabled, aiApiUrl }),
     }).then(r => r.json());
     if (res.success) {
       toast('Konfigurasi AI tersimpan ✓', 'success');
