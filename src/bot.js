@@ -157,7 +157,7 @@ async function startBot(socketIo) {
       if (msg.key.fromMe) continue; // skip own messages
       if (!msg.message) continue;
 
-      const senderJid = msg.key.senderPn;
+      const senderJid = msg.key.remoteJid;
       if (!senderJid || senderJid.includes("@g.us")) continue; // skip groups
 
       const config = getConfig();
