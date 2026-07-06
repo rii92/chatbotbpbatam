@@ -34,6 +34,10 @@ function loadConfig() {
       spamMessage: "",
       spamEnabled: false,
       botActive: true,
+      aiEnabled: false,
+      aiApiUrl: "http://192.168.200.177:8000",
+      aiUsername: "admin",
+      aiPassword: "12345",
     };
     fs.ensureFileSync(CONFIG_PATH);
     fs.writeJsonSync(CONFIG_PATH, defaults, { spaces: 2 });
@@ -187,10 +191,23 @@ async function startBot(socketIo) {
         continue;
       }
 
-      // Subject matter → send welcome/response
-      await sock.sendMessage(senderJid, {
-        text: config.welcomeMessage,
-      });
+      // Subject matter → AI response or static welcome
+      if (config.aiEnabled && config.aiApiUrl && text.trim()) {
+        try {
+          await sock.sendMessage(senderJid, { text: "⏳ _Memproses pertanyaan Anda..._" });
+          const aiAnswer = await askAi(text, config);
+          await sock.sendMessage(senderJid, { text: aiAnswer });
+        } catch (err) {
+          console.error("[AI] Error:", err.message);
+          await sock.sendMessage(senderJid, {
+            text: "Maaf, sistem AI sedang bermasalah. Silakan coba lagi nanti.",
+          });
+        }
+      } else {
+        await sock.sendMessage(senderJid, {
+          text: config.welcomeMessage,
+        });
+      }
     }
   });
 }
@@ -257,11 +274,105 @@ function emitLog(entry) {
   }
 }
 
+// ─── AI API (BP Batam) ──────────────────────────────────────────────────────
+let aiAuthCookie = null;
+
+async function aiLogin(config) {
+  const loginUrl = config.aiApiUrl.replace(/\/+$/, "") + "/login";
+  const body = new URLSearchParams({ username: config.aiUsername, password: config.aiPassword });
+
+  const res = await fetch(loginUrl, {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body,
+    redirect: "manual",
+  });
+
+  const setCookie = res.headers.get("set-cookie");
+  if (!setCookie) throw new Error("Gagal login ke AI API - tidak ada cookie");
+
+  // Extract bpbatam_auth cookie value
+  const match = setCookie.match(/bpbatam_auth=([^;]+)/);
+  if (!match) throw new Error("Gagal login ke AI API - cookie tidak ditemukan");
+
+  aiAuthCookie = `bpbatam_auth=${match[1]}`;
+  console.log("[AI] Login to AI API successful");
+}
+
+async function askAi(question, config) {
+  const baseUrl = config.aiApiUrl.replace(/\/+$/, "");
+
+  // Login if no cookie yet
+  if (!aiAuthCookie) {
+    await aiLogin(config);
+  }
+
+  const res = await fetch(`${baseUrl}/api/v1/ask`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Cookie: aiAuthCookie,
+    },
+    body: JSON.stringify({
+      question,
+      max_rows: 10,
+      use_kb: true,
+    }),
+  });
+
+  if (res.status === 401) {
+    // Cookie expired, re-login and retry
+    await aiLogin(config);
+    const retryRes = await fetch(`${baseUrl}/api/v1/ask`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Cookie: aiAuthCookie,
+      },
+      body: JSON.stringify({
+        question,
+        max_rows: 10,
+        use_kb: true,
+      }),
+    });
+    if (!retryRes.ok) {
+      const errText = await retryRes.text();
+      throw new Error(`AI API error (${retryRes.status}): ${errText}`);
+    }
+    const data = await retryRes.json();
+    return data.analysis || JSON.stringify(data);
+  }
+
+  if (!res.ok) {
+    const errText = await res.text();
+    throw new Error(`AI API error (${res.status}): ${errText}`);
+  }
+
+  const data = await res.json();
+  return data.analysis || JSON.stringify(data);
+}
+
+// ─── Refresh / Re-initiate Connection ───────────────────────────────────────
+async function refreshConnection() {
+  if (sock) {
+    sock.end(undefined);
+    sock = null;
+  }
+  fs.removeSync(AUTH_DIR);
+  qrCodeData = null;
+  connectionStatus = "disconnected";
+  emitStatus();
+  // small delay to let cleanup finish
+  await new Promise((r) => setTimeout(r, 500));
+  await startBot(io);
+}
+
 // ─── Exports ─────────────────────────────────────────────────────────────────
 module.exports = {
   startBot,
   sendSpam,
   logout,
+  refreshConnection,
   getStatus: () => ({ status: connectionStatus, qr: qrCodeData }),
   getConfig,
   updateConfig,

@@ -83,6 +83,16 @@ app.post("/api/broadcast", async (req, res) => {
   }
 });
 
+// Refresh QR (force regenerate QR when disconnected)
+app.post("/api/refresh", async (req, res) => {
+  try {
+    await bot.refreshConnection();
+    res.json({ success: true });
+  } catch (e) {
+    res.status(500).json({ success: false, error: e.message });
+  }
+});
+
 // Logout
 app.post("/api/logout", async (req, res) => {
   try {

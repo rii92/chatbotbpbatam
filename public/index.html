@@ -297,6 +297,7 @@
         <div class="dot"></div>
         <span id="statusText">Disconnected</span>
       </div>
+      <button class="btn-logout" id="refreshBtn" onclick="handleRefresh()" style="display:none;border-color:var(--warn);color:var(--warn)">⟳ Refresh QR</button>
       <button class="btn-logout" onclick="handleLogout()">⏏ Logout</button>
     </div>
   </header>
@@ -354,6 +355,29 @@
         </div>
         <div class="save-row">
           <button class="btn btn-primary btn-sm" onclick="saveMessages()">💾 Simpan Pesan</button>
+        </div>
+
+        <!-- AI API Integration -->
+        <div class="divider"></div>
+        <div class="section-title">🤖 AI BP Batam Integration</div>
+        <div class="toggle-row">
+          <span class="toggle-label">🧠 Aktifkan AI</span>
+          <label class="toggle">
+            <input type="checkbox" id="aiEnabledToggle" onchange="saveAiConfig()" />
+            <span class="slider"></span>
+          </label>
+        </div>
+        <div class="field">
+          <label>API URL</label>
+          <input type="text" id="aiApiUrl" placeholder="http://192.168.200.177:8000" onchange="saveAiConfig()" />
+        </div>
+        <div class="field">
+          <label>Username</label>
+          <input type="text" id="aiUsername" placeholder="admin" onchange="saveAiConfig()" />
+        </div>
+        <div class="field">
+          <label>Password</label>
+          <input type="password" id="aiPassword" placeholder="12345" onchange="saveAiConfig()" />
         </div>
 
         <div class="divider"></div>
@@ -423,6 +447,7 @@
     const text = document.getElementById('statusText');
     const qrWrap = document.getElementById('qrWrap');
     const connView = document.getElementById('connectedView');
+    const refreshBtn = document.getElementById('refreshBtn');
 
     pill.className = 'status-pill ' + status;
 
@@ -433,6 +458,15 @@
       disconnected: '○ Terputus',
     };
     text.textContent = labels[status] || status;
+
+    // Show refresh button only when disconnected
+    if (status === 'disconnected') {
+      refreshBtn.style.display = 'inline-block';
+      refreshBtn.disabled = false;
+      refreshBtn.textContent = '⟳ Refresh QR';
+    } else {
+      refreshBtn.style.display = 'none';
+    }
 
     if (status === 'connected') {
       qrWrap.style.display = 'none';
@@ -458,6 +492,10 @@
     document.getElementById('rejectMsg').value = cfg.rejectMessage || '';
     document.getElementById('welcomeMsg').value = cfg.welcomeMessage || '';
     document.getElementById('botActiveToggle').checked = cfg.botActive !== false;
+    document.getElementById('aiEnabledToggle').checked = cfg.aiEnabled === true;
+    document.getElementById('aiApiUrl').value = cfg.aiApiUrl || 'http://192.168.200.177:8000';
+    document.getElementById('aiUsername').value = cfg.aiUsername || '';
+    document.getElementById('aiPassword').value = cfg.aiPassword || '';
   }
 
   async function saveMessages() {
@@ -478,6 +516,23 @@
       body: JSON.stringify({ botActive: val }),
     });
     toast(val ? 'Bot diaktifkan ✓' : 'Bot dinonaktifkan', val ? 'success' : 'error');
+  }
+
+  async function saveAiConfig() {
+    const aiEnabled = document.getElementById('aiEnabledToggle').checked;
+    const aiApiUrl = document.getElementById('aiApiUrl').value.trim();
+    const aiUsername = document.getElementById('aiUsername').value.trim();
+    const aiPassword = document.getElementById('aiPassword').value.trim();
+    const res = await fetch('/api/config', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ aiEnabled, aiApiUrl, aiUsername, aiPassword }),
+    }).then(r => r.json());
+    if (res.success) {
+      toast('Konfigurasi AI tersimpan ✓', 'success');
+    } else {
+      toast('Gagal: ' + (res.error || ''), 'error');
+    }
   }
 
   // ── Subject Matters ───────────────────────────────────
@@ -602,6 +657,21 @@
 
   function escHtml(str) {
     return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+
+  // ── Refresh QR ────────────────────────────────────────
+  async function handleRefresh() {
+    const btn = document.getElementById('refreshBtn');
+    btn.disabled = true;
+    btn.textContent = '⏳ Memuat ulang...';
+
+    // Clear old QR
+    const img = document.getElementById('qrImg');
+    img.style.display = 'none';
+    document.getElementById('qrPlaceholder').style.display = 'block';
+
+    await fetch('/api/refresh', { method: 'POST' });
+    toast('Memuat ulang koneksi, scan QR baru', 'success');
   }
 
   // ── Logout ────────────────────────────────────────────
