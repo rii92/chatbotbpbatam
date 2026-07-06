@@ -35,7 +35,7 @@ function loadConfig() {
       spamEnabled: false,
       botActive: true,
       aiEnabled: false,
-      aiApiUrl: "http://localhost:8000",
+      aiApiUrl: "http://192.168.200.177:8000",
     };
     fs.ensureFileSync(CONFIG_PATH);
     fs.writeJsonSync(CONFIG_PATH, defaults, { spaces: 2 });

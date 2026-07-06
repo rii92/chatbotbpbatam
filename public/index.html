@@ -369,7 +369,7 @@
         </div>
         <div class="field">
           <label>API URL (EduQuery AI)</label>
-          <input type="text" id="aiApiUrl" placeholder="http://localhost:8000" onchange="saveAiConfig()" />
+          <input type="text" id="aiApiUrl" placeholder="http://192.168.200.177:8000" onchange="saveAiConfig()" />
         </div>
         <div class="field" style="font-size:0.75rem;color:var(--muted)">
           Webhook endpoint: <code>/webhook/whatsapp</code> — tidak perlu auth
@@ -488,7 +488,7 @@
     document.getElementById('welcomeMsg').value = cfg.welcomeMessage || '';
     document.getElementById('botActiveToggle').checked = cfg.botActive !== false;
     document.getElementById('aiEnabledToggle').checked = cfg.aiEnabled === true;
-    document.getElementById('aiApiUrl').value = cfg.aiApiUrl || 'http://localhost:8000';
+    document.getElementById('aiApiUrl').value = cfg.aiApiUrl || 'http://192.168.200.177:8000';
   }
 
   async function saveMessages() {
