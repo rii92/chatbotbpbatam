@@ -375,6 +375,17 @@
           Webhook endpoint: <code>/webhook/whatsapp</code> — tidak perlu auth
         </div>
 
+        <!-- Registration Code -->
+        <div class="divider"></div>
+        <div class="section-title">🔐 Kode Registrasi Subject Matter</div>
+        <div class="field">
+          <label>Kode (dikirim user via WA untuk daftar otomatis)</label>
+          <input type="text" id="regCodeInput" placeholder="cth: daftar123" onchange="saveRegCode()" style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:9px 12px;color:var(--text);font-family:var(--font-mono);font-size:0.8rem;outline:none;flex:1;width:100%" />
+        </div>
+        <div style="font-size:0.72rem;color:var(--muted);margin-top:-8px">
+          Kosongkan jika tidak ingin pakai fitur registrasi otomatis.
+        </div>
+
         <div class="divider"></div>
 
         <!-- Subject Matter management -->
@@ -489,6 +500,17 @@
     document.getElementById('botActiveToggle').checked = cfg.botActive !== false;
     document.getElementById('aiEnabledToggle').checked = cfg.aiEnabled === true;
     document.getElementById('aiApiUrl').value = cfg.aiApiUrl || 'http://192.168.200.177:8000';
+    document.getElementById('regCodeInput').value = cfg.registrationCode || '';
+  }
+
+  async function saveRegCode() {
+    const registrationCode = document.getElementById('regCodeInput').value.trim();
+    const res = await fetch('/api/config', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ registrationCode }),
+    }).then(r => r.json());
+    toast(res.success ? 'Kode registrasi tersimpan ✓' : 'Gagal: ' + (res.error || ''), res.success ? 'success' : 'error');
   }
 
   async function saveMessages() {

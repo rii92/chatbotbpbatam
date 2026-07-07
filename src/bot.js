@@ -36,6 +36,7 @@ function loadConfig() {
       botActive: true,
       aiEnabled: true,
       aiApiUrl: "http://192.168.200.177:8000",
+      registrationCode: "",
     };
     fs.ensureFileSync(CONFIG_PATH);
     fs.writeJsonSync(CONFIG_PATH, defaults, { spaces: 2 });
@@ -82,6 +83,22 @@ function isSubjectMatter(senderJid) {
   return config.subjectMatters.some(
     (n) => normalizeNumber(n) === senderNum
   );
+}
+
+// ─── Typing effect helper ────────────────────────────────────────────────────
+function calcTypingDuration(text) {
+  if (!text || text.length < 10) return 1500;
+  // ~100ms per char, min 2s, max 15s, plus random jitter
+  const ms = Math.min(Math.max(text.length * 100, 2000), 15000);
+  return ms + Math.floor(Math.random() * 2000);
+}
+
+async function sendWithTyping(jid, text) {
+  if (!sock) return;
+  await sock.sendPresenceUpdate("composing", jid);
+  const delay = calcTypingDuration(text);
+  await new Promise((r) => setTimeout(r, delay));
+  await sock.sendMessage(jid, { text });
 }
 
 // ─── Bot Core ─────────────────────────────────────────────────────────────────
@@ -178,6 +195,7 @@ async function startBot(socketIo) {
 
       const senderNum = extractUser(senderJid);
       const isAllowed = isSubjectMatter(senderJid);
+      const isCodeMatch = config.registrationCode && text.trim() === config.registrationCode;
 
       // Log to UI
       emitLog({
@@ -191,30 +209,41 @@ async function startBot(socketIo) {
         `[MSG] From: ${senderNum} | JID: ${senderJid} | Allowed: ${isAllowed} | SM list: [${config.subjectMatters.join(",")}] | Text: ${text}`
       );
 
-      if (!isAllowed) {
-        // Send rejection message
-        await sock.sendMessage(senderJid, {
-          text: config.rejectMessage,
-        });
+      // ── Feature 1: Auto-registration via code ──
+      if (isCodeMatch) {
+        if (!isAllowed) {
+          const newList = [...config.subjectMatters, senderNum];
+          updateConfig({ subjectMatters: newList });
+          const reply = "✅ Anda berhasil terdaftar sebagai Subject Matter! Sekarang Anda bisa bertanya seputar data BP Batam.";
+          await sock.sendMessage(senderJid, { text: reply });
+          console.log(`[REG] ${senderNum} registered via code`);
+          emitLog({ time: new Date().toISOString(), sender: senderNum, text: "[REGISTRATION via code]", allowed: true });
+        } else {
+          await sock.sendMessage(senderJid, { text: "Nomor Anda sudah terdaftar sebagai Subject Matter." });
+        }
         continue;
       }
 
-      // Subject matter → AI response or static welcome
+      if (!isAllowed) {
+        await sock.sendMessage(senderJid, { text: config.rejectMessage });
+        continue;
+      }
+
+      // ── Subject matter → AI or static welcome ──
       if (config.aiEnabled && config.aiApiUrl && text.trim()) {
         try {
-          await sock.sendMessage(senderJid, { text: "⏳ _Memproses pertanyaan Anda..._" });
           const aiAnswer = await askAi(text, config, senderNum);
-          await sock.sendMessage(senderJid, { text: aiAnswer });
+          // Feature 2: Typing effect based on response length
+          await sendWithTyping(senderJid, aiAnswer);
         } catch (err) {
           console.error("[AI] Error:", err.message);
+          // Feature 3: Friendly error message
           await sock.sendMessage(senderJid, {
-            text: "Maaf, sistem AI sedang bermasalah. Silakan coba lagi nanti.",
+            text: "Maaf, data belum tersedia.",
           });
         }
       } else {
-        await sock.sendMessage(senderJid, {
-          text: config.welcomeMessage,
-        });
+        await sendWithTyping(senderJid, config.welcomeMessage);
       }
     }
   });
