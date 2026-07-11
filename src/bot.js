@@ -331,14 +331,17 @@ async function askAi(question, config, senderNum) {
 
   const data = await res.json();
 
-  // Priority: LLM insight (most natural) > deterministic_insight > reply
+  // Priority: reply (now LLM-generated natural answer) > insight > deterministic_insight
+  if (data.reply && data.reply.trim()) {
+    return data.reply;
+  }
   if (data.insight && data.insight.trim()) {
     return data.insight;
   }
   if (data.deterministic_insight && data.deterministic_insight.trim()) {
     return data.deterministic_insight;
   }
-  return data.reply || JSON.stringify(data);
+  return JSON.stringify(data);
 }
 
 // ─── Refresh / Re-initiate Connection ───────────────────────────────────────
