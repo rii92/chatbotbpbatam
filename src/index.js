@@ -47,15 +47,15 @@ app.get("/api/subject-matters", (req, res) => {
 });
 
 app.post("/api/subject-matters", (req, res) => {
-  const { number } = req.body;
+  const { number, name } = req.body;
   if (!number) return res.status(400).json({ error: "Nomor wajib diisi" });
 
   const config = bot.getConfig();
   const clean = number.replace(/\D/g, "");
-  if (config.subjectMatters.includes(clean)) {
+  if (config.subjectMatters.some((sm) => sm.number.replace(/\D/g, "") === clean)) {
     return res.status(409).json({ error: "Nomor sudah terdaftar" });
   }
-  config.subjectMatters.push(clean);
+  config.subjectMatters.push({ number: clean, name: name || clean });
   bot.updateConfig({ subjectMatters: config.subjectMatters });
   res.json({ success: true, subjectMatters: config.subjectMatters });
 });
@@ -64,7 +64,7 @@ app.delete("/api/subject-matters/:number", (req, res) => {
   const num = req.params.number.replace(/\D/g, "");
   const config = bot.getConfig();
   config.subjectMatters = config.subjectMatters.filter(
-    (n) => n.replace(/\D/g, "") !== num
+    (sm) => sm.number.replace(/\D/g, "") !== num
   );
   bot.updateConfig({ subjectMatters: config.subjectMatters });
   res.json({ success: true, subjectMatters: config.subjectMatters });

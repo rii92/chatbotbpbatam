@@ -50,15 +50,27 @@ function saveConfig(config) {
   fs.writeJsonSync(CONFIG_PATH, config, { spaces: 2 });
 }
 
+function normalizeSubjectMatters(list) {
+  return list.map((sm) => {
+    if (typeof sm === "string") return { number: sm, name: sm };
+    return sm;
+  });
+}
+
 function getConfig() {
-  return loadConfig();
+  const cfg = loadConfig();
+  cfg.subjectMatters = normalizeSubjectMatters(cfg.subjectMatters);
+  return cfg;
 }
 
 function updateConfig(updates) {
-  const current = loadConfig();
-  const updated = { ...current, ...updates };
-  saveConfig(updated);
-  return updated;
+  const current = getConfig();
+  const merged = { ...current, ...updates };
+  if (merged.subjectMatters) {
+    merged.subjectMatters = normalizeSubjectMatters(merged.subjectMatters);
+  }
+  saveConfig(merged);
+  return merged;
 }
 
 // ─── Normalize phone number ───────────────────────────────────────────────────
@@ -81,8 +93,17 @@ function isSubjectMatter(senderJid) {
   const config = getConfig();
   const senderNum = normalizeNumber(extractUser(senderJid));
   return config.subjectMatters.some(
-    (n) => normalizeNumber(n) === senderNum
+    (sm) => normalizeNumber(sm.number) === senderNum
   );
+}
+
+function getSubjectMatterName(senderJid) {
+  const config = getConfig();
+  const senderNum = normalizeNumber(extractUser(senderJid));
+  const found = config.subjectMatters.find(
+    (sm) => normalizeNumber(sm.number) === senderNum
+  );
+  return found ? found.name : senderNum;
 }
 
 // ─── Typing effect helper ────────────────────────────────────────────────────
@@ -195,7 +216,10 @@ async function startBot(socketIo) {
 
       const senderNum = extractUser(senderJid);
       const isAllowed = isSubjectMatter(senderJid);
-      const isCodeMatch = config.registrationCode && text.trim() === config.registrationCode;
+      const trimmedText = text.trim();
+      const regCode = config.registrationCode;
+      const isCodeMatch = regCode && trimmedText === regCode;
+      const isCodeWithName = regCode && trimmedText.startsWith(regCode + "-");
 
       // Log to UI
       emitLog({
@@ -209,17 +233,21 @@ async function startBot(socketIo) {
         `[MSG] From: ${senderNum} | JID: ${senderJid} | Allowed: ${isAllowed} | SM list: [${config.subjectMatters.join(",")}] | Text: ${text}`
       );
 
-      // ── Feature 1: Auto-registration via code ──
-      if (isCodeMatch) {
+      // ── Feature 1: Auto-registration via code (format: kode-nama) ──
+      if (isCodeMatch || isCodeWithName) {
         if (!isAllowed) {
-          const newList = [...config.subjectMatters, senderNum];
+          const name = isCodeWithName
+            ? trimmedText.slice(regCode.length + 1).trim() || senderNum
+            : senderNum;
+          const newList = [...config.subjectMatters, { number: senderNum, name }];
           updateConfig({ subjectMatters: newList });
-          const reply = "✅ Anda berhasil terdaftar sebagai Subject Matter! Sekarang Anda bisa bertanya seputar data BP Batam.";
+          const reply = `✅ Selamat datang, *${name}*! Anda berhasil terdaftar sebagai Subject Matter. Sekarang Anda bisa bertanya seputar data BP Batam.`;
           await sock.sendMessage(senderJid, { text: reply });
-          console.log(`[REG] ${senderNum} registered via code`);
-          emitLog({ time: new Date().toISOString(), sender: senderNum, text: "[REGISTRATION via code]", allowed: true });
+          console.log(`[REG] ${senderNum} registered as "${name}" via code`);
+          emitLog({ time: new Date().toISOString(), sender: senderNum, text: `[REGISTRATION as "${name}"]`, allowed: true });
         } else {
-          await sock.sendMessage(senderJid, { text: "Nomor Anda sudah terdaftar sebagai Subject Matter." });
+          const existing = getSubjectMatterName(senderJid);
+          await sock.sendMessage(senderJid, { text: `Nomor Anda (${existing}) sudah terdaftar sebagai Subject Matter.` });
         }
         continue;
       }
@@ -257,15 +285,15 @@ async function sendSpam(message) {
   const config = getConfig();
   const results = [];
 
-  for (const num of config.subjectMatters) {
-    const jid = `${normalizeNumber(num)}@s.whatsapp.net`;
+  for (const sm of config.subjectMatters) {
+    const jid = `${normalizeNumber(sm.number)}@s.whatsapp.net`;
     try {
       await sock.sendMessage(jid, { text: message });
-      results.push({ number: num, status: "sent" });
+      results.push({ number: sm.number, name: sm.name, status: "sent" });
       // slight delay to avoid rate limiting
       await new Promise((r) => setTimeout(r, 500));
     } catch (err) {
-      results.push({ number: num, status: "failed", error: err.message });
+      results.push({ number: sm.number, name: sm.name, status: "failed", error: err.message });
     }
   }
 
@@ -368,5 +396,6 @@ module.exports = {
   getStatus: () => ({ status: connectionStatus, qr: qrCodeData }),
   getConfig,
   updateConfig,
+  normalizeSubjectMatters,
   BOT_NUMBER,
 };
