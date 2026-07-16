@@ -455,20 +455,33 @@
         </div>
 
         <div class="divider"></div>
-        <div class="section-title">🤖 AI EduQuery (Webhook)</div>
+        <div class="section-title">🤖 Metabase & LLM</div>
         <div class="toggle-row">
-          <span class="toggle-label">🧠 Aktifkan AI</span>
+          <span class="toggle-label">🧠 Aktifkan AI Metabase</span>
           <label class="toggle">
-            <input type="checkbox" id="aiEnabledToggle" onchange="saveAiConfig()" />
+            <input type="checkbox" id="aiEnabledToggle" onchange="saveMetabaseConfig()" />
             <span class="slider"></span>
           </label>
         </div>
         <div class="field">
-          <label>API URL (EduQuery AI)</label>
-          <input type="text" id="aiApiUrl" placeholder="http://192.168.200.177:8000" onchange="saveAiConfig()" />
+          <label>Metabase URL</label>
+          <input type="text" id="metabaseUrl" placeholder="http://172.16.9.210:3000" onchange="saveMetabaseConfig()" />
         </div>
-        <div class="field" style="font-size:0.75rem;color:var(--muted)">
-          Webhook endpoint: <code>/webhook/whatsapp</code> — tidak perlu auth
+        <div class="field">
+          <label>Metabase API Key</label>
+          <input type="password" id="metabaseApiKey" placeholder="mb_..." onchange="saveMetabaseConfig()" />
+        </div>
+        <div class="field">
+          <label>LLM API URL (OpenAI-compatible)</label>
+          <input type="text" id="llmUrl" placeholder="http://172.18.32.172:8080/v1" onchange="saveMetabaseConfig()" />
+        </div>
+        <div class="field">
+          <label>LLM API Key</label>
+          <input type="password" id="llmApiKey" placeholder="sk-..." onchange="saveMetabaseConfig()" />
+        </div>
+        <div class="field">
+          <label>LLM Model</label>
+          <input type="text" id="llmModel" placeholder="ornith-1.0-35b-Q6_K.gguf" onchange="saveMetabaseConfig()" />
         </div>
 
         <div class="divider"></div>
@@ -678,7 +691,11 @@
     document.getElementById('welcomeMsg').value = cfg.welcomeMessage || '';
     document.getElementById('botActiveToggle').checked = cfg.botActive !== false;
     document.getElementById('aiEnabledToggle').checked = cfg.aiEnabled === true;
-    document.getElementById('aiApiUrl').value = cfg.aiApiUrl || 'http://192.168.200.177:8000';
+    document.getElementById('metabaseUrl').value = cfg.metabaseUrl || 'http://172.16.9.210:3000';
+    document.getElementById('metabaseApiKey').value = cfg.metabaseApiKey || '';
+    document.getElementById('llmUrl').value = cfg.llmUrl || 'http://172.18.32.172:8080/v1';
+    document.getElementById('llmApiKey').value = cfg.llmApiKey || '';
+    document.getElementById('llmModel').value = cfg.llmModel || 'ornith-1.0-35b-Q6_K.gguf';
     document.getElementById('regCodeInput').value = cfg.registrationCode || '';
   }
 
@@ -712,16 +729,20 @@
     toast(val ? 'Bot diaktifkan ✓' : 'Bot dinonaktifkan', val ? 'success' : 'error');
   }
 
-  async function saveAiConfig() {
+  async function saveMetabaseConfig() {
     const aiEnabled = document.getElementById('aiEnabledToggle').checked;
-    const aiApiUrl = document.getElementById('aiApiUrl').value.trim();
+    const metabaseUrl = document.getElementById('metabaseUrl').value.trim();
+    const metabaseApiKey = document.getElementById('metabaseApiKey').value.trim();
+    const llmUrl = document.getElementById('llmUrl').value.trim();
+    const llmApiKey = document.getElementById('llmApiKey').value.trim();
+    const llmModel = document.getElementById('llmModel').value.trim();
     const res = await fetch('/api/config', {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ aiEnabled, aiApiUrl }),
+      body: JSON.stringify({ aiEnabled, metabaseUrl, metabaseApiKey, llmUrl, llmApiKey, llmModel }),
     }).then(r => r.json());
     if (res.success) {
-      toast('Konfigurasi AI tersimpan ✓', 'success');
+      toast('Konfigurasi Metabase & LLM tersimpan ✓', 'success');
     } else {
       toast('Gagal: ' + (res.error || ''), 'error');
     }

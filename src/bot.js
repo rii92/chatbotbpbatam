@@ -10,6 +10,7 @@ const pino = require("pino");
 const qrcode = require("qrcode");
 const fs = require("fs-extra");
 const path = require("path");
+const { MetabaseAPI, askMetabase } = require("./metabase-api");
 
 // ─── Config ──────────────────────────────────────────────────────────────────
 const BOT_NUMBER = "6285168779389";
@@ -35,7 +36,11 @@ function loadConfig() {
       spamEnabled: false,
       botActive: true,
       aiEnabled: true,
-      aiApiUrl: "http://192.168.200.177:8000",
+      metabaseUrl: "http://172.16.9.210:3000",
+      metabaseApiKey: "mb_6et6RIFVy7L6ScJFRakG3ZWG7HvknFZiFXTT+jQ0xLo=",
+      llmUrl: "http://172.18.32.172:8080/v1",
+      llmApiKey: "sk-placeholder",
+      llmModel: "ornith-1.0-35b-Q6_K.gguf",
       registrationCode: "",
     };
     fs.ensureFileSync(CONFIG_PATH);
@@ -257,15 +262,20 @@ async function startBot(socketIo) {
         continue;
       }
 
-      // ── Subject matter → AI or static welcome ──
-      if (config.aiEnabled && config.aiApiUrl && text.trim()) {
+      // ── Subject matter → Metabase + LLM or static welcome ──
+      if (config.aiEnabled && config.metabaseUrl && text.trim()) {
         try {
-          const aiAnswer = await askAi(text, config, senderNum);
-          // Feature 2: Typing effect based on response length
-          await sendWithTyping(senderJid, aiAnswer);
+          const mb = new MetabaseAPI(config.metabaseUrl, config.metabaseApiKey);
+          const answer = await askMetabase(
+            text,
+            config.llmUrl,
+            config.llmApiKey,
+            config.llmModel,
+            mb
+          );
+          await sendWithTyping(senderJid, answer);
         } catch (err) {
-          console.error("[AI] Error:", err.message);
-          // Feature 3: Friendly error message
+          console.error("[Metabase] Error:", err.message);
           await sock.sendMessage(senderJid, {
             text: "Maaf, data belum tersedia.",
           });
@@ -337,39 +347,6 @@ function emitLog(entry) {
   if (io) {
     io.emit("log", entry);
   }
-}
-
-// ─── AI API (EduQuery AI - Webhook) ──────────────────────────────────────
-async function askAi(question, config, senderNum) {
-  const baseUrl = config.aiApiUrl.replace(/\/+$/, "");
-
-  const res = await fetch(`${baseUrl}/webhook/whatsapp`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      sender: senderNum,
-      message: question,
-    }),
-  });
-
-  if (!res.ok) {
-    const errText = await res.text();
-    throw new Error(`AI API error (${res.status}): ${errText}`);
-  }
-
-  const data = await res.json();
-
-  // Priority: reply (now LLM-generated natural answer) > insight > deterministic_insight
-  if (data.reply && data.reply.trim()) {
-    return data.reply;
-  }
-  if (data.insight && data.insight.trim()) {
-    return data.insight;
-  }
-  if (data.deterministic_insight && data.deterministic_insight.trim()) {
-    return data.deterministic_insight;
-  }
-  return JSON.stringify(data);
 }
 
 // ─── Refresh / Re-initiate Connection ───────────────────────────────────────
