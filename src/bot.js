@@ -1,3 +1,5 @@
+require("dotenv").config();
+
 const {
   default: makeWASocket,
   DisconnectReason,
@@ -36,11 +38,11 @@ function loadConfig() {
       spamEnabled: false,
       botActive: true,
       aiEnabled: true,
-      metabaseUrl: "http://172.16.9.210:3000",
-      metabaseApiKey: "mb_6et6RIFVy7L6ScJFRakG3ZWG7HvknFZiFXTT+jQ0xLo=",
-      llmUrl: "http://172.18.32.172:8080/v1",
-      llmApiKey: "sk-placeholder",
-      llmModel: "ornith-1.0-35b-Q6_K.gguf",
+      metabaseUrl: process.env.METABASE_URL || "http://172.16.9.210:3000",
+      metabaseApiKey: process.env.METABASE_API_KEY || "",
+      llmUrl: process.env.LLM_URL || "http://172.18.32.172:8080/v1",
+      llmApiKey: process.env.LLM_API_KEY || "",
+      llmModel: process.env.LLM_MODEL || "ornith-1.0-35b-Q6_K.gguf",
       registrationCode: "",
     };
     fs.ensureFileSync(CONFIG_PATH);
