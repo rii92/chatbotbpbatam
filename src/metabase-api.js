@@ -13,6 +13,17 @@ class MetabaseAPI {
     };
   }
 
+  async _fetch(url, options, timeoutMs = 15000) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+      const res = await fetch(url, { ...options, signal: controller.signal });
+      return res;
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
   async get(path, params) {
     const url = new URL(`${this.baseUrl}${path}`);
     if (params) {
@@ -20,24 +31,26 @@ class MetabaseAPI {
         url.searchParams.set(k, v);
       }
     }
-    const res = await fetch(url.toString(), {
+    const res = await this._fetch(url.toString(), {
       method: "GET",
       headers: this._headers(),
     });
     if (!res.ok) {
-      throw new Error(`Metabase GET ${path} failed: ${res.status} ${await res.text()}`);
+      const body = await res.text().catch(() => "");
+      throw new Error(`Metabase GET ${path} failed: ${res.status} ${body}`);
     }
     return res.json();
   }
 
   async post(path, data) {
-    const res = await fetch(`${this.baseUrl}${path}`, {
+    const res = await this._fetch(`${this.baseUrl}${path}`, {
       method: "POST",
       headers: this._headers(),
       body: JSON.stringify(data),
     });
     if (!res.ok) {
-      throw new Error(`Metabase POST ${path} failed: ${res.status} ${await res.text()}`);
+      const body = await res.text().catch(() => "");
+      throw new Error(`Metabase POST ${path} failed: ${res.status} ${body}`);
     }
     return res.json();
   }
@@ -214,6 +227,7 @@ async function executeTool(name, args, mb) {
 
 async function callLLM(messages, llmUrl, llmApiKey, llmModel) {
   const url = llmUrl.replace(/\/+$/, "") + "/chat/completions";
+  console.log("[LLM] Calling:", url, "model:", llmModel);
   const headers = {
     "Content-Type": "application/json",
     Authorization: `Bearer ${llmApiKey || "sk-placeholder"}`,
@@ -226,15 +240,23 @@ async function callLLM(messages, llmUrl, llmApiKey, llmModel) {
     temperature: 0.3,
     max_tokens: 4096,
   };
-  const res = await fetch(url, {
-    method: "POST",
-    headers,
-    body: JSON.stringify(payload),
-  });
-  if (!res.ok) {
-    throw new Error(`LLM API error: ${res.status} ${await res.text()}`);
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 60000);
+  try {
+    const res = await fetch(url, {
+      method: "POST",
+      headers,
+      body: JSON.stringify(payload),
+      signal: controller.signal,
+    });
+    if (!res.ok) {
+      const body = await res.text().catch(() => "");
+      throw new Error(`LLM API error: ${res.status} ${body}`);
+    }
+    return res.json();
+  } finally {
+    clearTimeout(timer);
   }
-  return res.json();
 }
 
 const SYSTEM_PROMPT =
@@ -249,17 +271,22 @@ const SYSTEM_PROMPT =
   "7. Jangan eksekusi query yang belum dipahami.";
 
 async function askMetabase(question, llmUrl, llmApiKey, llmModel, mb) {
+  console.log("[METABASE] Question:", question);
+  console.log("[METABASE] llmUrl:", llmUrl, "model:", llmModel);
+
   const messages = [
     { role: "system", content: SYSTEM_PROMPT },
     { role: "user", content: question },
   ];
 
   for (let iter = 0; iter < 10; iter++) {
+    console.log("[METABASE] LLM iteration:", iter + 1);
     const response = await callLLM(messages, llmUrl, llmApiKey, llmModel);
     const choice = response.choices?.[0];
     if (!choice) throw new Error("LLM tidak memberikan respons");
 
     const msg = choice.message;
+    console.log("[METABASE] LLM finish_reason:", choice.finish_reason, "tool_calls:", msg.tool_calls?.length || 0);
 
     if (msg.tool_calls) {
       messages.push({
@@ -279,7 +306,9 @@ async function askMetabase(question, llmUrl, llmApiKey, llmModel, mb) {
           fnArgs = JSON.parse(fn.arguments);
         } catch (_) {}
 
+        console.log("[METABASE] Executing tool:", fn.name, fnArgs);
         const resultStr = await executeTool(fn.name, fnArgs, mb);
+        console.log("[METABASE] Tool result length:", resultStr.length);
         messages.push({
           role: "tool",
           tool_call_id: tc.id,
@@ -289,7 +318,9 @@ async function askMetabase(question, llmUrl, llmApiKey, llmModel, mb) {
       continue;
     }
 
-    return msg.content || "Maaf, tidak ada jawaban yang tersedia.";
+    const answer = msg.content || "Maaf, tidak ada jawaban yang tersedia.";
+    console.log("[METABASE] Final answer length:", answer.length);
+    return answer;
   }
 
   return "Maaf, proses terlalu panjang. Coba pertanyaan yang lebih spesifik.";

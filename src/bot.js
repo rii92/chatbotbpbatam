@@ -28,23 +28,7 @@ let io = null; // Socket.IO instance injected from server
 // ─── Config helpers ──────────────────────────────────────────────────────────
 function loadConfig() {
   if (!fs.existsSync(CONFIG_PATH)) {
-    const defaults = {
-      subjectMatters: [],
-      rejectMessage:
-        "Mohon maaf, Anda bukan Subject Matter yang terdaftar. Pesan ini tidak dapat diproses.",
-      welcomeMessage:
-        "Halo! Selamat datang. Anda terdaftar sebagai Subject Matter. Ada yang bisa kami bantu?",
-      spamMessage: "",
-      spamEnabled: false,
-      botActive: true,
-      aiEnabled: true,
-      metabaseUrl: process.env.METABASE_URL || "http://172.16.9.210:3000",
-      metabaseApiKey: process.env.METABASE_API_KEY || "",
-      llmUrl: process.env.LLM_URL || "http://172.18.32.172:8080/v1",
-      llmApiKey: process.env.LLM_API_KEY || "",
-      llmModel: process.env.LLM_MODEL || "ornith-1.0-35b-Q6_K.gguf",
-      registrationCode: "",
-    };
+    const defaults = getDefaults();
     fs.ensureFileSync(CONFIG_PATH);
     fs.writeJsonSync(CONFIG_PATH, defaults, { spaces: 2 });
     return defaults;
@@ -64,8 +48,33 @@ function normalizeSubjectMatters(list) {
   });
 }
 
+function getDefaults() {
+  return {
+    subjectMatters: [],
+    rejectMessage:
+      "Mohon maaf, Anda bukan Subject Matter yang terdaftar. Pesan ini tidak dapat diproses.",
+    welcomeMessage:
+      "Halo! Selamat datang. Anda terdaftar sebagai Subject Matter. Ada yang bisa kami bantu?",
+    spamMessage: "",
+    spamEnabled: false,
+    botActive: true,
+    aiEnabled: true,
+    metabaseUrl: process.env.METABASE_URL || "http://172.16.9.210:3000",
+    metabaseApiKey: process.env.METABASE_API_KEY || "",
+    llmUrl: process.env.LLM_URL || "http://172.18.32.172:8080/v1",
+    llmApiKey: process.env.LLM_API_KEY || "",
+    llmModel: process.env.LLM_MODEL || "ornith-1.0-35b-Q6_K.gguf",
+    registrationCode: "",
+  };
+}
+
 function getConfig() {
   const cfg = loadConfig();
+  const defaults = getDefaults();
+  // Merge defaults untuk field yang hilang (misal legacy config tanpa field baru)
+  for (const key of Object.keys(defaults)) {
+    if (cfg[key] === undefined) cfg[key] = defaults[key];
+  }
   cfg.subjectMatters = normalizeSubjectMatters(cfg.subjectMatters);
   return cfg;
 }
@@ -158,6 +167,14 @@ async function startBot(socketIo) {
   // ── Credentials save ──
   sock.ev.on("creds.update", saveCreds);
 
+  // Log config for debugging
+  const cfg = getConfig();
+  console.log("[CONFIG] aiEnabled:", cfg.aiEnabled);
+  console.log("[CONFIG] metabaseUrl:", cfg.metabaseUrl);
+  console.log("[CONFIG] metabaseApiKey:", cfg.metabaseApiKey ? "***" : "(empty)");
+  console.log("[CONFIG] llmUrl:", cfg.llmUrl);
+  console.log("[CONFIG] llmModel:", cfg.llmModel);
+
   // ── Connection updates ──
   sock.ev.on("connection.update", async (update) => {
     const { connection, lastDisconnect, qr } = update;
@@ -237,7 +254,7 @@ async function startBot(socketIo) {
       });
 
       console.log(
-        `[MSG] From: ${senderNum} | JID: ${senderJid} | Allowed: ${isAllowed} | SM list: [${config.subjectMatters.join(",")}] | Text: ${text}`
+        `[MSG] From: ${senderNum} | Allowed: ${isAllowed} | SM count: ${config.subjectMatters.length} | Text: ${text}`
       );
 
       // ── Feature 1: Auto-registration via code (format: kode-nama) ──
