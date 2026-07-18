@@ -1,6 +1,6 @@
 # Panduan Lengkap Chatbot BP Batam
 
-Sistem chatbot WhatsApp untuk layanan data warehouse perizinan BP Batam, didukung oleh AI (EduQuery AI) untuk menjawab pertanyaan seputar data perizinan secara natural dalam Bahasa Indonesia.
+Sistem chatbot WhatsApp untuk layanan data warehouse perizinan BP Batam, didukung oleh AI (BiQuery AI) untuk menjawab pertanyaan seputar data perizinan secara natural dalam Bahasa Indonesia.
 
 ---
 
@@ -12,11 +12,11 @@ Sistem chatbot WhatsApp untuk layanan data warehouse perizinan BP Batam, didukun
 4. [Dashboard Web (Control Panel)](#4-dashboard-web-control-panel)
 5. [Fitur Chatbot](#5-fitur-chatbot)
 6. [Daftar Intent / Pertanyaan yang Didukung](#6-daftar-intent--pertanyaan-yang-didukung)
-7. [Fitur AI EduQuery](#7-fitur-ai-eduquery)
+7. [Fitur AI BiQuery](#7-fitur-ai-biquery)
 8. [Referensi Konfigurasi](#8-referensi-konfigurasi)
 9. [Pemecahan Masalah](#9-pemecahan-masalah)
-10. [Dashboard Web EduQuery AI](#10-dashboard-web-eduquery-ai)
-11. [Panduan API EduQuery AI](#11-panduan-api-eduquery-ai)
+10. [Dashboard Web BiQuery AI](#10-dashboard-web-biquery-ai)
+11. [Panduan API BiQuery AI](#11-panduan-api-biquery-ai)
 12. [Lampiran](#12-lampiran)
 
 ---
@@ -27,8 +27,8 @@ Sistem terdiri dari **dua komponen** yang berjalan bersamaan:
 
 ```
 ┌─────────────────────────────────┐      ┌─────────────────────────────────┐
-│   WhatsApp Chatbot              │      │   EduQuery AI                  │
-│   (chatbot-bp-batamv3)          │      │   (eduquery-ai)                 │
+│   WhatsApp Chatbot              │      │   BiQuery AI                  │
+│   (chatbot-bp-batamv3)          │      │   (biquery-ai)                 │
 │                                 │      │                                 │
 │   Port: 3002                    │──────▶   Port: 8000                    │
 │   Node.js + Baileys + Express   │      │   Python + FastAPI              │
@@ -44,8 +44,8 @@ Sistem terdiri dari **dua komponen** yang berjalan bersamaan:
 
 1. User mengirim pesan WhatsApp ke nomor bot
 2. Chatbot menerima pesan, cek apakah user terdaftar sebagai **Subject Matter**
-3. Jika AI diaktifkan, pesan dikirim ke EduQuery AI via webhook
-4. EduQuery AI mengklasifikasikan intent, menjalankan SQL ke Oracle DB
+3. Jika AI diaktifkan, pesan dikirim ke BiQuery AI via webhook
+4. BiQuery AI mengklasifikasikan intent, menjalankan SQL ke Oracle DB
 5. Hasil data diproses oleh LLM menjadi jawaban natural
 6. Jawaban dikirim kembali ke user via WhatsApp dengan efek mengetik
 
@@ -80,10 +80,10 @@ docker compose up --build -d
 - Dashboard: http://localhost:3002
 - Config & session tersimpan di folder `data/`
 
-#### EduQuery AI
+#### BiQuery AI
 
 ```bash
-cd eduquery-ai
+cd biquery-ai
 
 # Copy environment file dan edit
 cp .env.example .env
@@ -99,9 +99,9 @@ docker compose up --build -d
 
 1. Buka dashboard chatbot: http://localhost:3002
 2. Scan QR Code dengan WhatsApp nomor bot (6285168779389)
-3. Di panel **AI EduQuery (Webhook)**:
+3. Di panel **AI BiQuery (Webhook)**:
    - Aktifkan toggle **"Aktifkan AI"**
-   - Isi **API URL**: `http://eduquery-ai-server:8000`
+   - Isi **API URL**: `http://biquery-ai-server:8000`
    - Catatan: endpoint webhook tidak perlu auth
 
 ### 3.2 Setup Manual (Development)
@@ -116,10 +116,10 @@ node src/index.js          # tanpa auto-restart
 npx nodemon src/index.js   # dengan auto-restart
 ```
 
-#### EduQuery AI
+#### BiQuery AI
 
 ```bash
-cd eduquery-ai
+cd biquery-ai
 cp .env.example .env
 # Edit .env
 pip install uv
@@ -150,7 +150,7 @@ Dashboard chatbot diakses di **http://localhost:3002** dengan 3 panel:
 | **Pesan Penolakan** | Balasan otomatis untuk nomor yang tidak terdaftar |
 | **Pesan Sambutan** | Balasan untuk Subject Matter (saat AI nonaktif) |
 | **Aktifkan AI** | Toggle untuk mengaktifkan/mematikan integrasi AI |
-| **API URL** | URL server EduQuery AI (default: `http://192.168.200.177:8000`) |
+| **API URL** | URL server BiQuery AI (default: `http://192.168.200.177:8000`) |
 | **Kode Registrasi** | Kode untuk registrasi otomatis via WhatsApp (contoh: `daftar123`) |
 | **Daftar Subject Matter** | Kelola nomor-nomor yang berhak mengakses bot |
 | **Broadcast** | Kirim pesan ke semua Subject Matter sekaligus |
@@ -298,7 +298,7 @@ Sistem mendukung **35 jenis pertanyaan** yang dikelompokkan dalam sektor berikut
 
 ---
 
-## 7. Fitur AI EduQuery
+## 7. Fitur AI BiQuery
 
 ### 7.1 Klasifikasi Pertanyaan (3 Lapisan)
 
@@ -339,10 +339,10 @@ Setiap jawaban dari AI mengandung:
 | `welcomeMessage` | Pesan sambutan default | Balasan untuk Subject Matter (jika AI nonaktif) |
 | `botActive` | `true` | Toggle bot aktif/nonaktif |
 | `aiEnabled` | `true` | Toggle integrasi AI |
-| `aiApiUrl` | `http://192.168.200.177:8000` | URL server EduQuery AI |
+| `aiApiUrl` | `http://192.168.200.177:8000` | URL server BiQuery AI |
 | `registrationCode` | `""` | Kode untuk registrasi otomatis (kosongkan untuk nonaktif) |
 
-### 8.2 EduQuery AI (Environment Variables)
+### 8.2 BiQuery AI (Environment Variables)
 
 | Variable | Default | Deskripsi |
 |----------|---------|-----------|
@@ -384,8 +384,8 @@ Periksa:
 Periksa:
 1. Apakah **Aktifkan AI** = ON? (dashboard panel tengah)
 2. Apakah **API URL** sudah benar? (default: `http://192.168.200.177:8000`)
-3. Apakah server EduQuery AI berjalan? `docker compose ps`
-4. Cek log EduQuery AI: `docker compose logs -f`
+3. Apakah server BiQuery AI berjalan? `docker compose ps`
+4. Cek log BiQuery AI: `docker compose logs -f`
 5. Pastikan koneksi Oracle DB berhasil (cek log startup)
 
 ### 9.4 Melihat Log Real-time
@@ -395,8 +395,8 @@ Periksa:
 cd chatbot-bp-batamv3
 docker compose logs -f
 
-# EduQuery AI
-cd eduquery-ai
+# BiQuery AI
+cd biquery-ai
 docker compose logs -f
 ```
 
@@ -407,8 +407,8 @@ docker compose logs -f
 cd chatbot-bp-batamv3
 docker compose restart
 
-# EduQuery AI
-cd eduquery-ai
+# BiQuery AI
+cd biquery-ai
 docker compose restart
 ```
 
@@ -425,15 +425,15 @@ docker compose up --build -d
 - **Nomor bot**: HARUS `6285168779389` (hardcoded)
 - **Session tersimpan** di `data/auth/` — jangan hapus kecuali ingin logout
 - **Port chatbot**: 3002 (bisa diubah di `docker-compose.yml`)
-- **Port EduQuery**: 8000 (bisa diubah di `.env`)
+- **Port BiQuery**: 8000 (bisa diubah di `.env`)
 - **Webhook endpoint**: `/webhook/whatsapp` — tidak perlu autentikasi
 - **Format nomor**: gunakan kode negara tanpa `+` atau `0` (contoh: `6281234567890`)
 
 ---
 
-## 10. Dashboard Web EduQuery AI
+## 10. Dashboard Web BiQuery AI
 
-Dashboard EduQuery AI diakses melalui **http://localhost:8000/**.
+Dashboard BiQuery AI diakses melalui **http://localhost:8000/**.
 
 ### 10.1 Dashboard Utama
 
@@ -534,7 +534,7 @@ Form intent terdiri dari 5 bagian (accordion):
 
 ---
 
-## 11. Panduan API EduQuery AI
+## 11. Panduan API BiQuery AI
 
 **Base URL**: `http://localhost:8000`
 
@@ -936,7 +936,7 @@ User Question
 | `LLAMACPP_TIMEOUT` | Tidak | `120` | Timeout llama.cpp (detik) |
 | `EMBEDDING_MODEL` | Tidak | `paraphrase-multilingual-MiniLM-L12-v2` | Model embedding |
 | `DB_TYPE` | Tidak | `oracle` | Tipe database: `oracle` / `sqlite` |
-| `SQLITE_DB_PATH` | Tidak | `data/eduquery.db` | Path file SQLite |
+| `SQLITE_DB_PATH` | Tidak | `data/biquery.db` | Path file SQLite |
 | `BP_DB_USER` | Ya | `us_dwh` | Username Oracle |
 | `BP_DB_PASSWORD` | Ya | (kosong) | Password Oracle |
 | `BP_DB_HOST` | Ya | `bpdb-scan.bpbatam.go.id:1521` | Host:port Oracle |

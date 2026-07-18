@@ -391,7 +391,7 @@ Mengembalikan konfigurasi publik yang digunakan frontend.
   "llamacpp_api_url": "http://172.18.32.172:8080/v1",
   "embedding_model": "paraphrase-multilingual-MiniLM-L12-v2",
   "db_type": "oracle",
-  "sqlite_path": "data/eduquery.db",
+  "sqlite_path": "data/biquery.db",
   "bp_host": "172.16.10.34:1521",
   "bp_service": "begs"
 }
@@ -574,7 +574,7 @@ User Question
 | `LLAMACPP_TIMEOUT` | Tidak | `120` | Timeout llama.cpp (detik) |
 | `EMBEDDING_MODEL` | Tidak | `paraphrase-multilingual-MiniLM-L12-v2` | Model embedding |
 | `DB_TYPE` | Tidak | `oracle` | Tipe database: `oracle` / `sqlite` |
-| `SQLITE_DB_PATH` | Tidak | `data/eduquery.db` | Path file SQLite |
+| `SQLITE_DB_PATH` | Tidak | `data/biquery.db` | Path file SQLite |
 | `BP_DB_USER` | Ya | `us_dwh` | Username Oracle |
 | `BP_DB_PASSWORD` | Ya | (kosong) | Password Oracle |
 | `BP_DB_HOST` | Ya | `bpdb-scan.bpbatam.go.id:1521` | Host:port Oracle |
