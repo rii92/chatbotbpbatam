@@ -24,6 +24,7 @@ let sock = null;
 let connectionStatus = "disconnected"; // disconnected | connecting | connected
 let qrCodeData = null;
 let io = null; // Socket.IO instance injected from server
+let choosingModel = {}; // Map senderNum -> true (user is selecting model)
 
 // ─── Config helpers ──────────────────────────────────────────────────────────
 function loadConfig() {
@@ -59,6 +60,8 @@ function getDefaults() {
     spamEnabled: false,
     botActive: true,
     aiEnabled: true,
+    aiApiUrl: process.env.BI_QUERY_URL || "http://192.168.200.177:8000",
+    userModels: {},
     metabaseUrl: process.env.METABASE_URL || "http://172.16.9.210:3000",
     metabaseApiKey: process.env.METABASE_API_KEY || "",
     llmUrl: process.env.LLM_URL || "http://172.18.32.172:8080/v1",
@@ -66,6 +69,18 @@ function getDefaults() {
     llmModel: process.env.LLM_MODEL || "ornith-1.0-35b-Q6_K.gguf",
     registrationCode: "",
   };
+}
+
+function getUserModel(senderNum) {
+  const config = getConfig();
+  return config.userModels?.[senderNum] || "metabase";
+}
+
+function setUserModel(senderNum, model) {
+  const config = getConfig();
+  config.userModels = config.userModels || {};
+  config.userModels[senderNum] = model;
+  updateConfig({ userModels: config.userModels });
 }
 
 function getConfig() {
@@ -281,20 +296,48 @@ async function startBot(socketIo) {
         continue;
       }
 
-      // ── Subject matter → Metabase + LLM or static welcome ──
-      if (config.aiEnabled && config.metabaseUrl && text.trim()) {
+      // ── Feature 2: Ganti model command ──
+      if (/^ganti\s*model$/i.test(trimmedText)) {
+        choosingModel[senderNum] = true;
+        const current = getUserModel(senderNum);
+        await sock.sendMessage(senderJid, {
+          text: `🔄 Model saat ini: *${current === "biquery" ? "BI Query" : "Metabase"}*\n\nPilih model data:\n1. BI Query (EduQuery)\n2. Metabase\n\nKetik *1* atau *2*`,
+        });
+        continue;
+      }
+
+      // ── Feature 3: Handle model selection (1 or 2) ──
+      if (choosingModel[senderNum] && (trimmedText === "1" || trimmedText === "2")) {
+        delete choosingModel[senderNum];
+        const model = trimmedText === "1" ? "biquery" : "metabase";
+        setUserModel(senderNum, model);
+        const label = model === "biquery" ? "BI Query (EduQuery)" : "Metabase";
+        await sock.sendMessage(senderJid, {
+          text: `✅ Model diubah ke *${label}*. Silakan ajukan pertanyaan.`,
+        });
+        continue;
+      }
+
+      // ── Subject matter → model-based routing ──
+      if (config.aiEnabled && text.trim()) {
+        const userModel = getUserModel(senderNum);
         try {
-          const mb = new MetabaseAPI(config.metabaseUrl, config.metabaseApiKey);
-          const answer = await askMetabase(
-            text,
-            config.llmUrl,
-            config.llmApiKey,
-            config.llmModel,
-            mb
-          );
+          let answer;
+          if (userModel === "biquery") {
+            answer = await askBiQuery(text, config, senderNum);
+          } else {
+            const mb = new MetabaseAPI(config.metabaseUrl, config.metabaseApiKey);
+            answer = await askMetabase(
+              text,
+              config.llmUrl,
+              config.llmApiKey,
+              config.llmModel,
+              mb
+            );
+          }
           await sendWithTyping(senderJid, answer);
         } catch (err) {
-          console.error("[Metabase] Error:", err.message);
+          console.error("[AI] Error:", err.message);
           await sock.sendMessage(senderJid, {
             text: "Maaf, data belum tersedia.",
           });
@@ -366,6 +409,25 @@ function emitLog(entry) {
   if (io) {
     io.emit("log", entry);
   }
+}
+
+// ─── BI Query (EduQuery AI - Webhook) ────────────────────────────────────
+async function askBiQuery(question, config, senderNum) {
+  const baseUrl = (config.aiApiUrl || "http://192.168.200.177:8000").replace(/\/+$/, "");
+  const res = await fetch(`${baseUrl}/webhook/whatsapp`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ sender: senderNum, message: question }),
+  });
+  if (!res.ok) {
+    const errText = await res.text();
+    throw new Error(`BI Query API error (${res.status}): ${errText}`);
+  }
+  const data = await res.json();
+  if (data.reply && data.reply.trim()) return data.reply;
+  if (data.insight && data.insight.trim()) return data.insight;
+  if (data.deterministic_insight && data.deterministic_insight.trim()) return data.deterministic_insight;
+  return JSON.stringify(data);
 }
 
 // ─── Refresh / Re-initiate Connection ───────────────────────────────────────
