@@ -60,7 +60,7 @@ function getDefaults() {
     spamEnabled: false,
     botActive: true,
     aiEnabled: true,
-    aiApiUrl: process.env.BI_QUERY_URL || "http://192.168.200.177:8000",
+    aiApiUrl: process.env.BI_QUERY_URL || "",
     userModels: {},
     metabaseUrl: process.env.METABASE_URL || "http://172.16.9.210:3000",
     metabaseApiKey: process.env.METABASE_API_KEY || "",
@@ -413,7 +413,7 @@ function emitLog(entry) {
 
 // ─── BI Query Webhook ────────────────────────────────────────────────────
 async function askBiQuery(question, config, senderNum) {
-  const baseUrl = (config.aiApiUrl || "http://192.168.200.177:8000").replace(/\/+$/, "");
+  const baseUrl = (config.aiApiUrl || process.env.BI_QUERY_URL || "").replace(/\/+$/, "");
   const res = await fetch(`${baseUrl}/webhook/whatsapp`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },

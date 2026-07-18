@@ -150,7 +150,7 @@ Dashboard chatbot diakses di **http://localhost:3002** dengan 3 panel:
 | **Pesan Penolakan** | Balasan otomatis untuk nomor yang tidak terdaftar |
 | **Pesan Sambutan** | Balasan untuk Subject Matter (saat AI nonaktif) |
 | **Aktifkan AI** | Toggle untuk mengaktifkan/mematikan integrasi AI |
-| **API URL** | URL server BiQuery AI (default: `http://192.168.200.177:8000`) |
+| **API URL** | URL server BiQuery AI (default: `http://172.18.32.172:8000`) |
 | **Kode Registrasi** | Kode untuk registrasi otomatis via WhatsApp (contoh: `daftar123`) |
 | **Daftar Subject Matter** | Kelola nomor-nomor yang berhak mengakses bot |
 | **Broadcast** | Kirim pesan ke semua Subject Matter sekaligus |
@@ -339,7 +339,7 @@ Setiap jawaban dari AI mengandung:
 | `welcomeMessage` | Pesan sambutan default | Balasan untuk Subject Matter (jika AI nonaktif) |
 | `botActive` | `true` | Toggle bot aktif/nonaktif |
 | `aiEnabled` | `true` | Toggle integrasi AI |
-| `aiApiUrl` | `http://192.168.200.177:8000` | URL server BiQuery AI |
+| `aiApiUrl` | `http://172.18.32.172:8000` | URL server BiQuery AI |
 | `registrationCode` | `""` | Kode untuk registrasi otomatis (kosongkan untuk nonaktif) |
 
 ### 8.2 BiQuery AI (Environment Variables)
@@ -383,7 +383,7 @@ Periksa:
 
 Periksa:
 1. Apakah **Aktifkan AI** = ON? (dashboard panel tengah)
-2. Apakah **API URL** sudah benar? (default: `http://192.168.200.177:8000`)
+2. Apakah **API URL** sudah benar? (default: `http://172.18.32.172:8000`)
 3. Apakah server BiQuery AI berjalan? `docker compose ps`
 4. Cek log BiQuery AI: `docker compose logs -f`
 5. Pastikan koneksi Oracle DB berhasil (cek log startup)
