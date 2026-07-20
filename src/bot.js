@@ -19,6 +19,8 @@ const BOT_NUMBER = "6285168779389";
 const AUTH_DIR = path.join(__dirname, "../data/auth");
 const CONFIG_PATH = path.join(__dirname, "../data/config.json");
 
+const DISCLAIMER = "\n\n_Jawaban ini merupakan hasil dari AI. Terdapat kemungkinan adanya kesalahan jawaban._";
+
 // ─── State ────────────────────────────────────────────────────────────────────
 let sock = null;
 let connectionStatus = "disconnected"; // disconnected | connecting | connected
@@ -321,6 +323,9 @@ async function startBot(socketIo) {
       // ── Subject matter → model-based routing ──
       if (config.aiEnabled && text.trim()) {
         const userModel = getUserModel(senderNum);
+        // Send processing indicator immediately
+        await sock.sendPresenceUpdate("composing", senderJid);
+        await sock.sendMessage(senderJid, { text: "⏳ Jawaban Anda sedang diproses..." });
         try {
           let answer;
           if (userModel === "biquery") {
@@ -335,7 +340,7 @@ async function startBot(socketIo) {
               mb
             );
           }
-          await sendWithTyping(senderJid, answer);
+          await sendWithTyping(senderJid, answer + DISCLAIMER);
         } catch (err) {
           console.error("[AI] Error:", err.message);
           await sock.sendMessage(senderJid, {

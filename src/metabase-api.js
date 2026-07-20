@@ -265,10 +265,9 @@ const SYSTEM_PROMPT =
   "1. Mulai dengan search atau list untuk menemukan konten relevan.\n" +
   "2. Baca detail dashboard/card jika perlu.\n" +
   "3. Execute card untuk mendapatkan data aktual jika user minta angka.\n" +
-  "4. Selalu sebutkan sumber (dashboard/card name + ID) di jawaban.\n" +
-  "5. Jawab dalam Bahasa Indonesia, format WhatsApp (tanpa markdown tabel, gunakan teks biasa).\n" +
-  "6. Jika data kosong, sampaikan bahwa belum ada data yang tersedia.\n" +
-  "7. Jangan eksekusi query yang belum dipahami.";
+  "4. Jawab dalam Bahasa Indonesia, format WhatsApp (tanpa markdown tabel, gunakan teks biasa).\n" +
+  "5. Jika data kosong, sampaikan bahwa belum ada data yang tersedia.\n" +
+  "6. Jangan eksekusi query yang belum dipahami.";
 
 async function askMetabase(question, llmUrl, llmApiKey, llmModel, mb) {
   console.log("[METABASE] Question:", question);
