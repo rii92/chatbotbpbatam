@@ -299,7 +299,7 @@ async function startBot(socketIo) {
       }
 
       // ── Feature 2: Ganti model command ──
-      if (/^ganti\s*model$/i.test(trimmedText)) {
+      if (/^ganti\s*agent$/i.test(trimmedText)) {
         choosingModel[senderNum] = true;
         const current = getUserModel(senderNum);
         await sock.sendMessage(senderJid, {
