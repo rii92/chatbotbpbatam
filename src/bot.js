@@ -323,9 +323,13 @@ async function startBot(socketIo) {
       // ── Subject matter → model-based routing ──
       if (config.aiEnabled && text.trim()) {
         const userModel = getUserModel(senderNum);
-        // Send processing indicator immediately
-        await sock.sendPresenceUpdate("composing", senderJid);
         await sock.sendMessage(senderJid, { text: "⏳ Jawaban Anda sedang diproses..." });
+
+        // Keep typing indicator alive every 15s while waiting
+        const typingInterval = setInterval(() => {
+          sock?.sendPresenceUpdate("composing", senderJid).catch(() => {});
+        }, 15000);
+
         try {
           let answer;
           if (userModel === "biquery") {
@@ -340,8 +344,10 @@ async function startBot(socketIo) {
               mb
             );
           }
+          clearInterval(typingInterval);
           await sendWithTyping(senderJid, answer + DISCLAIMER);
         } catch (err) {
+          clearInterval(typingInterval);
           console.error("[AI] Error:", err.message);
           await sock.sendMessage(senderJid, {
             text: "Maaf, data belum tersedia.",
