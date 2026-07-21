@@ -303,7 +303,7 @@ async function startBot(socketIo) {
         choosingModel[senderNum] = true;
         const current = getUserModel(senderNum);
         await sock.sendMessage(senderJid, {
-          text: `🔄 Model saat ini: *${current === "biquery" ? "BI Query" : "Metabase"}*\n\nPilih model data:\n1. BI Query\n2. Metabase\n\nKetik *1* atau *2*`,
+          text: `🔄 Agen saat ini: *${current === "biquery" ? "BI Query" : "MCP Metabase"}*\n\nPilih agen AI:\n1. BI Query\n2. MCP Metabase\n\nKetik *1* atau *2*`,
         });
         continue;
       }
@@ -313,7 +313,7 @@ async function startBot(socketIo) {
         delete choosingModel[senderNum];
         const model = trimmedText === "1" ? "biquery" : "metabase";
         setUserModel(senderNum, model);
-        const label = model === "biquery" ? "BI Query" : "Metabase";
+        const label = model === "biquery" ? "BI Query" : "MCP Metabase";
         await sock.sendMessage(senderJid, {
           text: `✅ Model diubah ke *${label}*. Silakan ajukan pertanyaan.`,
         });
